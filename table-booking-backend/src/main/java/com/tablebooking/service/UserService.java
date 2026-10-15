@@ -8,6 +8,7 @@ import com.tablebooking.entity.User;
 import com.tablebooking.exception.ConflictException;
 import com.tablebooking.exception.UnauthorizedException;
 import com.tablebooking.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,9 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -30,7 +33,7 @@ public class UserService {
         User user = new User();
         user.setName(request.name().trim());
         user.setEmail(email);
-        user.setPassword(request.password());
+        user.setPassword(passwordEncoder.encode(request.password()));
         user.setPhone(request.phone().trim());
         user.setRole(Role.CUSTOMER);
         return toResponse(userRepository.save(user));
@@ -39,7 +42,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse login(UserLoginRequest request) {
         User user = userRepository.findByEmailIgnoreCase(request.email().trim())
-                .filter(foundUser -> foundUser.getPassword().equals(request.password()))
+            .filter(foundUser -> passwordEncoder.matches(request.password(), foundUser.getPassword()))
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password."));
         return toResponse(user);
     }
